@@ -58,6 +58,7 @@ FIO_PATTERN = re.compile(
     r"\b[А-ЯЁ][а-яё]+(?:-[А-ЯЁ][а-яё]+)?(?:\s+[А-ЯЁ][а-яё]+(?:-[А-ЯЁ][а-яё]+)?){1,2}\b"
 )
 JIRA_LOGIN_PATTERN = re.compile(r"\b[a-z][a-z0-9_-]*\.[a-z][a-z0-9_-]*\b", re.IGNORECASE)
+SUPPORTED_EXCEL_SUFFIXES = {".xlsx", ".xlsm", ".xltx", ".xltm"}
 
 
 class Anonymizer:
@@ -164,7 +165,7 @@ def build_output_paths(input_path: Path) -> tuple[Path, Path]:
 
 def choose_input_file() -> Path:
     script = """
-    set selectedFile to choose file with prompt "Выберите Excel-файл для обезличивания" of type {"xlsx", "xlsm", "xltx", "xltm"}
+    set selectedFile to choose file with prompt "Выберите Excel-файл для обезличивания"
     POSIX path of selectedFile
     """
     try:
@@ -176,14 +177,22 @@ def choose_input_file() -> Path:
         )
         selected_path = result.stdout.strip()
         if selected_path:
-            return Path(selected_path).expanduser().resolve()
+            input_path = Path(selected_path).expanduser().resolve()
+            if input_path.suffix.lower() not in SUPPORTED_EXCEL_SUFFIXES:
+                raise ValueError(
+                    "Поддерживаются только Excel-файлы: .xlsx, .xlsm, .xltx, .xltm"
+                )
+            return input_path
     except (subprocess.CalledProcessError, FileNotFoundError):
         pass
 
     manual_path = input("Введите путь до Excel-файла: ").strip()
     if not manual_path:
         raise ValueError("Не выбран входной файл")
-    return Path(manual_path).expanduser().resolve()
+    input_path = Path(manual_path).expanduser().resolve()
+    if input_path.suffix.lower() not in SUPPORTED_EXCEL_SUFFIXES:
+        raise ValueError("Поддерживаются только Excel-файлы: .xlsx, .xlsm, .xltx, .xltm")
+    return input_path
 
 
 def parse_args() -> argparse.Namespace:
