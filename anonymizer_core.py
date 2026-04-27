@@ -90,23 +90,28 @@ class Anonymizer:
 
     def _generate_fake_name(self, original_name: str) -> str:
         parts_count = len(original_name.split())
+        current_index = self._name_index
+        self._name_index += 1
 
-        while True:
-            first_name = FIRST_NAMES[self._name_index % len(FIRST_NAMES)]
-            last_name = LAST_NAMES[(self._name_index // len(FIRST_NAMES)) % len(LAST_NAMES)]
+        first_name = FIRST_NAMES[current_index % len(FIRST_NAMES)]
+        last_name = LAST_NAMES[(current_index // len(FIRST_NAMES)) % len(LAST_NAMES)]
+
+        if parts_count == 2:
+            cycle = current_index // (len(FIRST_NAMES) * len(LAST_NAMES))
+            candidate = f"{first_name} {last_name}"
+            if cycle:
+                candidate = f"{candidate} {cycle}"
+        else:
             middle_name = MIDDLE_NAMES[
-                (self._name_index // (len(FIRST_NAMES) * len(LAST_NAMES))) % len(MIDDLE_NAMES)
+                (current_index // (len(FIRST_NAMES) * len(LAST_NAMES))) % len(MIDDLE_NAMES)
             ]
-            self._name_index += 1
+            cycle = current_index // (len(FIRST_NAMES) * len(LAST_NAMES) * len(MIDDLE_NAMES))
+            candidate = f"{last_name} {first_name} {middle_name}"
+            if cycle:
+                candidate = f"{candidate} {cycle}"
 
-            if parts_count == 2:
-                candidate = f"{first_name} {last_name}"
-            else:
-                candidate = f"{last_name} {first_name} {middle_name}"
-
-            if candidate not in self._used_names:
-                self._used_names.add(candidate)
-                return candidate
+        self._used_names.add(candidate)
+        return candidate
 
     def _generate_fake_login(self) -> str:
         self._login_index += 1
@@ -116,6 +121,19 @@ class Anonymizer:
 def remove_hyperlink(cell) -> None:
     if cell.hyperlink is not None:
         cell.hyperlink = None
+
+
+def iter_existing_cells(worksheet):
+    cells = getattr(worksheet, "_cells", None)
+    if isinstance(cells, dict) and cells:
+        return cells.values()
+
+    return (
+        cell
+        for row in worksheet.iter_rows()
+        for cell in row
+        if cell.value is not None or cell.hyperlink is not None
+    )
 
 
 def validate_excel_path(input_path: Path) -> Path:
@@ -132,12 +150,12 @@ def anonymize_workbook(input_path: Path, output_path: Path) -> tuple[Path, Anony
     anonymizer = Anonymizer()
 
     for worksheet in workbook.worksheets:
-        for row in worksheet.iter_rows():
-            for cell in row:
-                remove_hyperlink(cell)
-                if isinstance(cell.value, str):
-                    cell.value = anonymizer.anonymize_text(cell.value)
+        for cell in iter_existing_cells(worksheet):
+            remove_hyperlink(cell)
+            if isinstance(cell.value, str):
+                cell.value = anonymizer.anonymize_text(cell.value)
 
+    output_path.parent.mkdir(parents=True, exist_ok=True)
     workbook.save(output_path)
     return output_path, anonymizer
 
@@ -195,11 +213,11 @@ def deanonymize_workbook(input_path: Path, mapping_path: Path, output_path: Path
     replacements = load_reverse_mapping(mapping_path)
 
     for worksheet in workbook.worksheets:
-        for row in worksheet.iter_rows():
-            for cell in row:
-                if isinstance(cell.value, str):
-                    cell.value = deanonymize_text(cell.value, replacements)
+        for cell in iter_existing_cells(worksheet):
+            if isinstance(cell.value, str):
+                cell.value = deanonymize_text(cell.value, replacements)
 
+    output_path.parent.mkdir(parents=True, exist_ok=True)
     workbook.save(output_path)
     return output_path
 

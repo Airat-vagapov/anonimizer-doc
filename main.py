@@ -32,8 +32,6 @@ def parse_args() -> argparse.Namespace:
 
 def run_anonymize(input_path: Path) -> tuple[Path, Path]:
     output_path, mapping_path = build_output_paths(input_path)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-
     anonymized_file, anonymizer = anonymize_workbook(input_path, output_path)
     mapping_file = save_mapping_workbook(mapping_path, anonymizer)
     return anonymized_file, mapping_file
@@ -41,7 +39,6 @@ def run_anonymize(input_path: Path) -> tuple[Path, Path]:
 
 def run_decrypt(input_path: Path, mapping_path: Path) -> Path:
     output_path = build_decrypted_output_path(input_path)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
     return deanonymize_workbook(input_path, mapping_path, output_path)
 
 
