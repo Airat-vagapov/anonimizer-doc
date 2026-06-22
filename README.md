@@ -113,15 +113,21 @@ CI запускается автоматически на каждый push че
 
 ## Требования
 
-- macOS для GUI-режима (выбор файла через системное окно `osascript`);
 - Python 3.9+;
-- `openpyxl>=3.1,<4` (устанавливается через `pip install -e .`).
+- `openpyxl>=3.1,<4` (устанавливается через `pip install -e .`);
+- GUI-режим:
+  - **macOS** — работает из коробки через `osascript`;
+  - **Windows** — работает из коробки через `tkinter` (входит в стандартную установку Python);
+  - **Linux** — требует `tkinter`: `sudo apt install python3-tk` (Debian/Ubuntu).
+
+CLI-режим (`python main.py file.xlsx`) работает на всех платформах без дополнительных зависимостей.
 
 ## Структура
 
 - `main.py` — точка входа, выбирает GUI- или CLI-режим;
 - `anonymizer_core.py` — вся логика обработки Excel;
-- `macos_ui.py` — оконный интерфейс через `osascript`;
+- `macos_ui.py` — GUI через `osascript` (macOS);
+- `tkinter_ui.py` — GUI через `tkinter` (Windows / Linux);
 - `pyproject.toml` — зависимости и настройки инструментов;
 - `tests/` — автотесты (pytest).
 
