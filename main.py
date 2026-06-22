@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import platform
 from pathlib import Path
 
 from anonymizer_core import (
@@ -12,7 +13,11 @@ from anonymizer_core import (
     save_mapping_workbook,
     validate_excel_path,
 )
-from macos_ui import UserCancelled, choose_excel_file, choose_mode, choose_post_action, show_error
+
+if platform.system() == "Darwin":
+    from macos_ui import UserCancelled, choose_excel_file, choose_mode, choose_post_action, show_error
+else:
+    from tkinter_ui import UserCancelled, choose_excel_file, choose_mode, choose_post_action, show_error
 
 
 def parse_args() -> argparse.Namespace:
