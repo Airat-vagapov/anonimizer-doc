@@ -112,6 +112,22 @@ class TestAnonymizerTextPatterns:
             result = a.anonymize_text(name)
             assert name not in result
 
+    def test_three_word_non_fio_third_word_preserved(self):
+        # "Москва" has no patronymic suffix → must not be swallowed as a third FIO word
+        a = Anonymizer()
+        result = a.anonymize_text("Отдел Продаж Москва")
+        assert "Москва" in result
+
+    def test_patronymic_feminine_matched(self):
+        a = Anonymizer()
+        result = a.anonymize_text("Петрова Мария Ивановна")
+        assert "Петрова Мария Ивановна" not in result
+
+    def test_patronymic_masculine_matched(self):
+        a = Anonymizer()
+        result = a.anonymize_text("Петров Иван Сергеевич")
+        assert "Петров Иван Сергеевич" not in result
+
     def test_fake_login_format(self):
         a = Anonymizer()
         a.anonymize_text("ivan.petrov")

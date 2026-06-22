@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import Iterable
+from typing import Callable, Iterable
 
 from openpyxl import Workbook, load_workbook
 
@@ -50,8 +50,12 @@ MIDDLE_NAMES = [
     "Юрьевич", "Юрьевна",
 ]
 
+# For 3-word matches the third word must end in a patronymic suffix (-вич/-вна/-ична)
+# to avoid replacing arbitrary capitalized Cyrillic phrases like "Отдел Продаж Москва".
+_CYRILLIC_WORD = r"[А-ЯЁ][а-яё]+(?:-[А-ЯЁ][а-яё]+)?"
+_PATRONYMIC_WORD = r"[А-ЯЁ][а-яё]*(?:вич|вна|ична)"
 FIO_PATTERN = re.compile(
-    r"\b[А-ЯЁ][а-яё]+(?:-[А-ЯЁ][а-яё]+)?(?:\s+[А-ЯЁ][а-яё]+(?:-[А-ЯЁ][а-яё]+)?){1,2}\b"
+    r"\b" + _CYRILLIC_WORD + r"\s+" + _CYRILLIC_WORD + r"(?:\s+" + _PATRONYMIC_WORD + r")?\b"
 )
 JIRA_LOGIN_PATTERN = re.compile(r"\b[a-z][a-z0-9_-]*\.[a-z][a-z0-9_-]*\b", re.IGNORECASE)
 SUPPORTED_EXCEL_SUFFIXES = {".xlsx", ".xlsm", ".xltx", ".xltm"}
@@ -220,6 +224,17 @@ def deanonymize_text(value: str, replacements: Iterable[tuple[str, str]]) -> str
     return restored_value
 
 
+def _build_reverse_replacer(replacements: list[tuple[str, str]]) -> Callable[[str], str] | None:
+    """Compile one regex that swaps all masked values back in a single pass."""
+    if not replacements:
+        return None
+    # replacements is already sorted longest-first by load_reverse_mapping,
+    # so longer tokens win over their substrings without extra logic.
+    pattern = re.compile("|".join(re.escape(masked) for masked, _ in replacements))
+    lookup = {masked: original for masked, original in replacements}
+    return lambda value: pattern.sub(lambda m: lookup[m.group(0)], value)
+
+
 def deanonymize_workbook(
     input_path: Path,
     mapping_path: Path,
@@ -228,15 +243,18 @@ def deanonymize_workbook(
 ) -> Path:
     workbook = load_workbook(input_path)
     replacements = load_reverse_mapping(mapping_path)
+    apply = _build_reverse_replacer(replacements)
     sheets = workbook.worksheets
     total = len(sheets)
 
     for idx, worksheet in enumerate(sheets, start=1):
         if progress:
             print(f"  Лист {idx}/{total}: {worksheet.title}")
+        if apply is None:
+            continue
         for cell in iter_existing_cells(worksheet):
             if isinstance(cell.value, str):
-                cell.value = deanonymize_text(cell.value, replacements)
+                cell.value = apply(cell.value)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     workbook.save(output_path)
