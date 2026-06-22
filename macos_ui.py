@@ -47,13 +47,6 @@ def choose_excel_file(prompt: str) -> Path:
     return Path(run_applescript(script))
 
 
-def show_info(title: str, message: str) -> None:
-    script = f'''
-    display dialog "{_escape_applescript(message)}" with title "{_escape_applescript(title)}" buttons {{"OK"}} default button "OK" with icon note
-    '''
-    run_applescript(script)
-
-
 def show_error(title: str, message: str) -> None:
     script = f'''
     display dialog "{_escape_applescript(message)}" with title "{_escape_applescript(title)}" buttons {{"OK"}} default button "OK" with icon stop

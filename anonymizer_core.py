@@ -7,50 +7,47 @@ from typing import Iterable
 from openpyxl import Workbook, load_workbook
 
 FIRST_NAMES = [
-    "Алексей",
-    "Андрей",
-    "Анна",
-    "Виктор",
-    "Дарья",
-    "Екатерина",
-    "Ирина",
-    "Мария",
-    "Никита",
-    "Ольга",
-    "Сергей",
-    "Татьяна",
+    "Алексей", "Александр", "Алина", "Андрей", "Анна", "Антон",
+    "Борис", "Валентина", "Валерий", "Виктор", "Виктория", "Владимир",
+    "Дарья", "Денис", "Диана", "Дмитрий", "Екатерина", "Елена",
+    "Иван", "Игорь", "Ирина", "Кирилл", "Ксения", "Константин",
+    "Лариса", "Людмила", "Максим", "Мария", "Михаил", "Надежда",
+    "Никита", "Николай", "Оксана", "Олег", "Ольга", "Павел",
+    "Полина", "Роман", "Светлана", "Сергей", "Тамара", "Татьяна",
+    "Юлия", "Юрий", "Яна",
 ]
 
 LAST_NAMES = [
-    "Александров",
-    "Белов",
-    "Волков",
-    "Громов",
-    "Егоров",
-    "Захаров",
-    "Ильин",
-    "Крылов",
-    "Морозов",
-    "Назаров",
-    "Орлов",
-    "Соколов",
+    "Александров", "Алексеев", "Афанасьев", "Баранов", "Белов", "Борисов",
+    "Васильев", "Виноградов", "Волков", "Воробьёв", "Герасимов", "Григорьев",
+    "Громов", "Данилов", "Егоров", "Ефимов", "Захаров", "Зайцев",
+    "Иванов", "Ильин", "Козлов", "Комаров", "Кузнецов", "Кузьмин",
+    "Крылов", "Лазарев", "Лебедев", "Макаров", "Медведев", "Михайлов",
+    "Морозов", "Назаров", "Никитин", "Николаев", "Новиков", "Орлов",
+    "Павлов", "Петров", "Попов", "Романов", "Семёнов", "Сидоров",
+    "Смирнов", "Соколов", "Степанов", "Тихонов", "Федоров", "Фролов",
+    "Харитонов", "Чистяков", "Щербаков",
 ]
 
 MIDDLE_NAMES = [
-    "Алексеевич",
-    "Андреевич",
-    "Викторович",
-    "Дмитриевич",
-    "Игоревич",
-    "Олегович",
-    "Сергеевич",
-    "Алексеевна",
-    "Андреевна",
-    "Викторовна",
-    "Дмитриевна",
-    "Игоревна",
-    "Олеговна",
-    "Сергеевна",
+    "Алексеевич", "Алексеевна",
+    "Александрович", "Александровна",
+    "Андреевич", "Андреевна",
+    "Борисович", "Борисовна",
+    "Валерьевич", "Валерьевна",
+    "Викторович", "Викторовна",
+    "Владимирович", "Владимировна",
+    "Дмитриевич", "Дмитриевна",
+    "Евгеньевич", "Евгеньевна",
+    "Игоревич", "Игоревна",
+    "Константинович", "Константиновна",
+    "Михайлович", "Михайловна",
+    "Николаевич", "Николаевна",
+    "Олегович", "Олеговна",
+    "Павлович", "Павловна",
+    "Петрович", "Петровна",
+    "Сергеевич", "Сергеевна",
+    "Юрьевич", "Юрьевна",
 ]
 
 FIO_PATTERN = re.compile(
@@ -59,13 +56,13 @@ FIO_PATTERN = re.compile(
 JIRA_LOGIN_PATTERN = re.compile(r"\b[a-z][a-z0-9_-]*\.[a-z][a-z0-9_-]*\b", re.IGNORECASE)
 SUPPORTED_EXCEL_SUFFIXES = {".xlsx", ".xlsm", ".xltx", ".xltm"}
 MAPPING_SHEET_NAME = "Расшифровка"
+MAPPING_COLUMN_WIDTH = 32
 
 
 class Anonymizer:
     def __init__(self) -> None:
         self.full_name_map: dict[str, str] = {}
         self.login_map: dict[str, str] = {}
-        self._used_names: set[str] = set()
         self._name_index = 0
         self._login_index = 0
 
@@ -82,11 +79,15 @@ class Anonymizer:
 
     def _full_name_replacer(self, match: re.Match[str]) -> str:
         original_name = match.group(0)
-        return self.full_name_map.setdefault(original_name, self._generate_fake_name(original_name))
+        if original_name not in self.full_name_map:
+            self.full_name_map[original_name] = self._generate_fake_name(original_name)
+        return self.full_name_map[original_name]
 
     def _login_replacer(self, match: re.Match[str]) -> str:
         original_login = match.group(0)
-        return self.login_map.setdefault(original_login, self._generate_fake_login())
+        if original_login not in self.login_map:
+            self.login_map[original_login] = self._generate_fake_login()
+        return self.login_map[original_login]
 
     def _generate_fake_name(self, original_name: str) -> str:
         parts_count = len(original_name.split())
@@ -110,7 +111,6 @@ class Anonymizer:
             if cycle:
                 candidate = f"{candidate} {cycle}"
 
-        self._used_names.add(candidate)
         return candidate
 
     def _generate_fake_login(self) -> str:
@@ -124,6 +124,10 @@ def remove_hyperlink(cell) -> None:
 
 
 def iter_existing_cells(worksheet):
+    # worksheet.iter_rows() allocates a full grid even for sparse sheets;
+    # accessing the internal cell store directly is much faster for large workbooks.
+    # We fall back to the public API if the internal attribute is unavailable
+    # (e.g. after an openpyxl refactor) so the code degrades gracefully.
     cells = getattr(worksheet, "_cells", None)
     if isinstance(cells, dict) and cells:
         return cells.values()
@@ -145,11 +149,19 @@ def validate_excel_path(input_path: Path) -> Path:
     return resolved_path
 
 
-def anonymize_workbook(input_path: Path, output_path: Path) -> tuple[Path, Anonymizer]:
+def anonymize_workbook(
+    input_path: Path,
+    output_path: Path,
+    progress: bool = False,
+) -> tuple[Path, Anonymizer]:
     workbook = load_workbook(input_path)
     anonymizer = Anonymizer()
+    sheets = workbook.worksheets
+    total = len(sheets)
 
-    for worksheet in workbook.worksheets:
+    for idx, worksheet in enumerate(sheets, start=1):
+        if progress:
+            print(f"  Лист {idx}/{total}: {worksheet.title}")
         for cell in iter_existing_cells(worksheet):
             remove_hyperlink(cell)
             if isinstance(cell.value, str):
@@ -175,7 +187,7 @@ def save_mapping_workbook(
         worksheet.append(["Логин", original_login, fake_login])
 
     for column in ("A", "B", "C"):
-        worksheet.column_dimensions[column].width = 32
+        worksheet.column_dimensions[column].width = MAPPING_COLUMN_WIDTH
 
     workbook.save(output_path)
     return output_path
@@ -208,11 +220,20 @@ def deanonymize_text(value: str, replacements: Iterable[tuple[str, str]]) -> str
     return restored_value
 
 
-def deanonymize_workbook(input_path: Path, mapping_path: Path, output_path: Path) -> Path:
+def deanonymize_workbook(
+    input_path: Path,
+    mapping_path: Path,
+    output_path: Path,
+    progress: bool = False,
+) -> Path:
     workbook = load_workbook(input_path)
     replacements = load_reverse_mapping(mapping_path)
+    sheets = workbook.worksheets
+    total = len(sheets)
 
-    for worksheet in workbook.worksheets:
+    for idx, worksheet in enumerate(sheets, start=1):
+        if progress:
+            print(f"  Лист {idx}/{total}: {worksheet.title}")
         for cell in iter_existing_cells(worksheet):
             if isinstance(cell.value, str):
                 cell.value = deanonymize_text(cell.value, replacements)

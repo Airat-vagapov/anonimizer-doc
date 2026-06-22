@@ -30,16 +30,16 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def run_anonymize(input_path: Path) -> tuple[Path, Path]:
+def run_anonymize(input_path: Path, progress: bool = False) -> tuple[Path, Path]:
     output_path, mapping_path = build_output_paths(input_path)
-    anonymized_file, anonymizer = anonymize_workbook(input_path, output_path)
+    anonymized_file, anonymizer = anonymize_workbook(input_path, output_path, progress=progress)
     mapping_file = save_mapping_workbook(mapping_path, anonymizer)
     return anonymized_file, mapping_file
 
 
-def run_decrypt(input_path: Path, mapping_path: Path) -> Path:
+def run_decrypt(input_path: Path, mapping_path: Path, progress: bool = False) -> Path:
     output_path = build_decrypted_output_path(input_path)
-    return deanonymize_workbook(input_path, mapping_path, output_path)
+    return deanonymize_workbook(input_path, mapping_path, output_path, progress=progress)
 
 
 def cli_main(args: argparse.Namespace) -> int:
@@ -48,8 +48,12 @@ def cli_main(args: argparse.Namespace) -> int:
     if args.decrypt:
         if input_path is None:
             raise ValueError("Для режима --decrypt нужно передать путь до Excel-файла.")
-        mapping_path = validate_excel_path(Path(args.mapping_file)) if args.mapping_file else infer_mapping_path(input_path)
-        decrypted_file = run_decrypt(input_path, mapping_path)
+        mapping_path = (
+            validate_excel_path(Path(args.mapping_file))
+            if args.mapping_file
+            else infer_mapping_path(input_path)
+        )
+        decrypted_file = run_decrypt(input_path, mapping_path, progress=True)
         print(f"Расшифрованный файл сохранен: {decrypted_file}")
         print(f"Использован файл расшифровки: {mapping_path}")
         return 0
@@ -57,7 +61,7 @@ def cli_main(args: argparse.Namespace) -> int:
     if input_path is None:
         raise ValueError("Передайте путь до Excel-файла или запустите без аргументов для оконного режима.")
 
-    anonymized_file, mapping_file = run_anonymize(input_path)
+    anonymized_file, mapping_file = run_anonymize(input_path, progress=True)
     print(f"Обезличенный файл сохранен: {anonymized_file}")
     print(f"Файл расшифровки сохранен: {mapping_file}")
     return 0
@@ -74,7 +78,7 @@ def gui_main() -> int:
         except FileNotFoundError:
             mapping_path = validate_excel_path(choose_excel_file("Выберите файл расшифровки mapping.xlsx"))
 
-        decrypted_file = run_decrypt(input_path, mapping_path)
+        decrypted_file = run_decrypt(input_path, mapping_path, progress=True)
         choose_post_action(
             "Расшифровка завершена",
             f"Готово.\n\nФайл:\n{decrypted_file}\n\nMapping:\n{mapping_path}",
@@ -82,7 +86,7 @@ def gui_main() -> int:
         )
         return 0
 
-    anonymized_file, mapping_file = run_anonymize(input_path)
+    anonymized_file, mapping_file = run_anonymize(input_path, progress=True)
     choose_post_action(
         "Обезличивание завершено",
         f"Готово.\n\nОбезличенный файл:\n{anonymized_file}\n\nФайл соответствий:\n{mapping_file}",
